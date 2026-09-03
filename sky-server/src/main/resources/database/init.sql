@@ -1,0 +1,20 @@
+CREATE DATABASE IF NOT EXISTS `sky_take_out`;
+
+USE sky_take_out;
+
+DROP TABLE IF EXISTS `employee`;
+
+CREATE TABLE `employee` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    `name` VARCHAR(50) NOT NULL COMMENT '姓名',
+    `username` VARCHAR(50) NOT NULL UNIQUE COMMENT '用户名',
+    `password` VARCHAR(64) NOT NULL COMMENT '密码',
+    `phone` VARCHAR(11) NOT NULL COMMENT '手机号',
+    `sex` VARCHAR(2) NOT NULL COMMENT '性别',
+    `id_number` VARCHAR(18) NOT NULL COMMENT '身份证号',
+    `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态 0:禁用,1:正常',
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `create_user` BIGINT NOT NULL COMMENT '创建人',
+    `update_user` BIGINT NOT NULL COMMENT '修改人'
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '员工表';

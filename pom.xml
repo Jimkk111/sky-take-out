@@ -2,21 +2,26 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         <!-- 声明POM模型版本 -->
     <modelVersion>4.0.0</modelVersion>
+    <!-- 继承父项目 -->
     <parent>
         <artifactId>spring-boot-starter-parent</artifactId>
         <groupId>org.springframework.boot</groupId>
         <version>2.7.3</version>
     </parent>
+    <!-- 本项目的组织标识、项目标识、项目版本和打包类型 -->
     <groupId>com.sky</groupId>
     <artifactId>sky-take-out</artifactId>
     <packaging>pom</packaging>
     <version>1.0-SNAPSHOT</version>
+    <!-- 多模块聚合 -->
     <modules>
         <module>sky-common</module>
         <module>sky-pojo</module>
         <module>sky-server</module>
     </modules>
+    <!-- 全局属性 -->
     <properties>
         <mybatis.spring>2.2.0</mybatis.spring>
         <lombok>1.18.36</lombok>
@@ -31,6 +36,7 @@
         <jaxb-api>2.3.1</jaxb-api>
         <poi>3.16</poi>
     </properties>
+    <!-- 依赖管理 -->
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -126,6 +132,7 @@
         </dependencies>
     </dependencyManagement>
 
+<!-- 构建配置（构建与插件） -->
     <build>
         <pluginManagement>
             <plugins>
