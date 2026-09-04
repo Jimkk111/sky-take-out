@@ -27,5 +27,5 @@ CREATE TABLE `employee` (
 
 INSERT INTO `employee` (`id`, `name`, `username`, `password`, `phone`, `sex`, `id_number`, `status`,
                         `create_time`, `update_time`, `create_user`, `update_user`)
-VALUES (1, '管理员', 'admin', '123456', '13812312312', '1', '110101199001010047', 1,
+VALUES (1, '管理员', 'admin', 'e10adc3949ba59abbe56e057f20f883e', '13812312312', '1', '110101199001010047', 1,
         '2022-02-15 15:51:20', '2022-02-17 09:16:20', 10, 1);
