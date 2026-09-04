@@ -81,8 +81,8 @@ public class EmployeeController {
      */
     @PostMapping
     @Operation(summary = "新增员工", description = "新增员工接口")
-    public Result save(@RequestBody EmployeeDTO employeeDTO) {
+    public Result<String> save(@RequestBody EmployeeDTO employeeDTO) {
         employeeService.save(employeeDTO);
-        return Result.success();
+        return Result.success("新增员工成功");
     }
 }

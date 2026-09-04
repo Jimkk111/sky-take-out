@@ -5,6 +5,7 @@ import com.sky.constant.PasswordConstant;
 import com.sky.constant.StatusConstant;
 import com.sky.dto.EmployeeDTO;
 import com.sky.dto.EmployeeLoginDTO;
+import com.sky.context.BaseContext;
 import com.sky.entity.Employee;
 import com.sky.exception.AccountLockedException;
 import com.sky.exception.AccountNotFoundException;
@@ -66,6 +67,7 @@ public class EmployeeServiceImpl implements EmployeeService {
      */
     public void save(EmployeeDTO employeeDTO) {
         Employee employee = new Employee();
+        Long currentId = BaseContext.getCurrentId();
 
         BeanUtils.copyProperties(employeeDTO, employee);
 
@@ -80,8 +82,8 @@ public class EmployeeServiceImpl implements EmployeeService {
         employee.setUpdateTime(LocalDateTime.now());
 
         // 设置创建人和修改人
-        employee.setCreateUser(10L);
-        employee.setUpdateUser(10L);
+        employee.setCreateUser(currentId);
+        employee.setUpdateUser(currentId);
 
         employeeMapper.insert(employee);
     }
