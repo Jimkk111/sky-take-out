@@ -97,6 +97,12 @@ public class EmployeeController {
         return Result.success(pageResult);
     }
 
+    /**
+     * 启用禁用员工账号
+     * @param status
+     * @param id
+     * @return Result<String>
+     */
     @PostMapping("/status/{status}")
     @Operation(summary = "员工状态修改", description = "员工状态修改接口")
     public Result<String> setStatus(@PathVariable Integer status, Long id){

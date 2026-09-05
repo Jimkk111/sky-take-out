@@ -107,6 +107,11 @@ public class EmployeeServiceImpl implements EmployeeService {
         return new PageResult(total, records);
     }
 
+    /*
+     * 根据id修改员工状态
+     * @param status
+     * @param id
+     */
     public void setStatus(Integer status, Long id){
         Employee employee = Employee.builder()
                                     .id(id)
