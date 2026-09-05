@@ -14,10 +14,7 @@ import com.sky.vo.EmployeeLoginVO;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -98,5 +95,13 @@ public class EmployeeController {
     public Result<PageResult> pageQuery(@RequestBody EmployeePageQueryDTO employeePageQueryDTO){
         PageResult pageResult = employeeService.pageQuery(employeePageQueryDTO);
         return Result.success(pageResult);
+    }
+
+    @PostMapping("/status/{status}")
+    @Operation(summary = "员工状态修改", description = "员工状态修改接口")
+    public Result<String> setStatus(@PathVariable Integer status, Long id){
+        log.info("启用/禁用员工账号：{}，{}", status, id);
+        employeeService.setStatus(status, id);
+        return Result.success("员工状态修改成功");
     }
 }
