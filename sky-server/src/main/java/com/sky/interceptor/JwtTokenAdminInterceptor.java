@@ -10,6 +10,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.web.util.WebUtils;
+
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -39,8 +42,9 @@ public class JwtTokenAdminInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        //1、从请求头中获取令牌
-        String token = request.getHeader(jwtProperties.getAdminTokenName());
+        //1、从HttpOnly cookie中获取令牌（由浏览器自动携带）
+        Cookie tokenCookie = WebUtils.getCookie(request, jwtProperties.getAdminTokenName());
+        String token = tokenCookie == null ? null : tokenCookie.getValue();
 
         //2、校验令牌
         try {

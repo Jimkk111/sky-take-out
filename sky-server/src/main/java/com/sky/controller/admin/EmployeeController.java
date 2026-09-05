@@ -14,8 +14,11 @@ import com.sky.vo.EmployeeLoginVO;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletResponse;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -39,7 +42,7 @@ public class EmployeeController {
      * @return
      */
     @PostMapping("/login")
-    public Result<EmployeeLoginVO> login(@RequestBody EmployeeLoginDTO employeeLoginDTO) {
+    public Result<EmployeeLoginVO> login(@RequestBody EmployeeLoginDTO employeeLoginDTO, HttpServletResponse response) {
         log.info("员工登录：{}", employeeLoginDTO);
 
         Employee employee = employeeService.login(employeeLoginDTO);
@@ -52,11 +55,20 @@ public class EmployeeController {
                 jwtProperties.getAdminTtl(),
                 claims);
 
+        // 以HttpOnly cookie下发令牌，浏览器自动携带且JS无法读取；本地http调试，secure保持关闭
+        ResponseCookie cookie = ResponseCookie.from(jwtProperties.getAdminTokenName(), token)
+                .httpOnly(true)
+                .sameSite("Lax")
+                .path("/")
+                .maxAge(jwtProperties.getAdminTtl() / 1000)
+                .secure(false)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
         EmployeeLoginVO employeeLoginVO = EmployeeLoginVO.builder()
                 .id(employee.getId())
                 .userName(employee.getUsername())
                 .name(employee.getName())
-                .token(token)
                 .build();
 
         return Result.success(employeeLoginVO);
@@ -69,7 +81,15 @@ public class EmployeeController {
      */
     @PostMapping("/logout")
     @Operation()
-    public Result<String> logout() {
+    public Result<String> logout(HttpServletResponse response) {
+        // 覆盖同名cookie使其立即过期，清除浏览器中的令牌
+        ResponseCookie cookie = ResponseCookie.from(jwtProperties.getAdminTokenName(), "")
+                .httpOnly(true)
+                .sameSite("Lax")
+                .path("/")
+                .maxAge(0)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
         return Result.success();
     }
 
