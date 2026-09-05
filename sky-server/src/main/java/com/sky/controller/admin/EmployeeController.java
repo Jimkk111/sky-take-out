@@ -110,4 +110,16 @@ public class EmployeeController {
         employeeService.setStatus(status, id);
         return Result.success("员工状态修改成功");
     }
+
+    /**
+     * 根据id查询员工
+     * @param id
+     * @return Result<Employee>
+     */
+    @GetMapping("/detail/{id}")
+    @Operation(summary = "根据id查询员工", description = "根据id查询员工接口")
+    public Result<Employee> getById(@PathVariable Long id){
+        Employee employee = employeeService.getById(id);
+        return Result.success(employee);
+    }
 }

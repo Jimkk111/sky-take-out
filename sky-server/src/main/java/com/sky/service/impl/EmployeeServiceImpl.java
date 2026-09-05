@@ -121,4 +121,13 @@ public class EmployeeServiceImpl implements EmployeeService {
                                     .build();
         employeeMapper.update(employee);
     }
+
+    /**
+     * 根据id查询员工
+     * @param id
+      * @return Employee
+     */
+    public Employee getById(Long id){
+        return employeeMapper.getById(id);
+    }
 }
