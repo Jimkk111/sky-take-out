@@ -122,4 +122,16 @@ public class EmployeeController {
         Employee employee = employeeService.getById(id);
         return Result.success(employee);
     }
+
+    /**
+     * 修改员工信息
+     * @param employeeDTO
+     * @return Result
+     */
+    @PutMapping
+    @Operation(summary = "修改员工信息", description = "修改员工信息接口")
+    public Result<String> update(@RequestBody EmployeeDTO employeeDTO){
+        employeeService.update(employeeDTO);
+        return Result.success("修改员工信息成功");
+    }
 }
