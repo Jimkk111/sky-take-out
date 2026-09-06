@@ -1,6 +1,7 @@
 package com.sky.config;
 
 import com.sky.interceptor.JwtTokenAdminInterceptor;
+import com.sky.interceptor.UserLoginInterceptor;
 import com.sky.json.JacksonObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +35,9 @@ public class WebMvcConfiguration extends WebMvcConfigurationSupport {
     @Autowired
     private JwtTokenAdminInterceptor jwtTokenAdminInterceptor;
 
+    @Autowired
+    private UserLoginInterceptor userLoginInterceptor;
+
     /**
      * 注册自定义拦截器
      *
@@ -45,6 +49,9 @@ public class WebMvcConfiguration extends WebMvcConfigurationSupport {
         registry.addInterceptor(jwtTokenAdminInterceptor)
                 .addPathPatterns("/admin/**")
                 .excludePathPatterns("/admin/employee/login");
+        //用户端登录校验：购物车、地址簿、订单需要登录；菜品、分类、套餐浏览无需登录
+        registry.addInterceptor(userLoginInterceptor)
+                .addPathPatterns("/shoppingCart/**", "/addressBook/**", "/order/**");
     }
 
     /**

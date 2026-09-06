@@ -67,4 +67,27 @@
             #{id}
         </foreach>
     </select>
+
+    <select id="list" resultType="Setmeal">
+        select * from setmeal
+        <where>
+            <if test="name != null and name != ''">
+                and name like concat('%',#{name},'%')
+            </if>
+            <if test="categoryId != null">
+                and category_id = #{categoryId}
+            </if>
+            <if test="status != null">
+                and status = #{status}
+            </if>
+        </where>
+        order by create_time desc
+    </select>
+
+    <select id="getDishItemBySetmealId" resultType="com.sky.vo.DishItemVO">
+        select d.name, sd.copies, d.image, d.description
+        from setmeal_dish sd
+        left join dish d on sd.dish_id = d.id
+        where sd.setmeal_id = #{setmealId}
+    </select>
 </mapper>

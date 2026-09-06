@@ -3,6 +3,7 @@ package com.sky.mapper;
 import com.github.pagehelper.Page;
 import com.sky.dto.SetmealPageQueryDTO;
 import com.sky.entity.Setmeal;
+import com.sky.vo.DishItemVO;
 import com.sky.vo.SetmealVO;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
@@ -62,4 +63,18 @@ public interface SetmealMapper {
      * @return
      */
     Long countOnSaleByIds(@Param("status") Integer status, @Param("ids") List<Long> ids);
+
+    /**
+     * 动态条件查询套餐（用户端浏览）
+     * @param setmeal
+     * @return
+     */
+    List<Setmeal> list(Setmeal setmeal);
+
+    /**
+     * 根据套餐id查询套餐包含的菜品（用户端套餐详情）
+     * @param setmealId
+     * @return
+     */
+    List<DishItemVO> getDishItemBySetmealId(Long setmealId);
 }

@@ -19,4 +19,7 @@ public class OrderVO extends Orders implements Serializable {
     //订单详情
     private List<OrderDetail> orderDetailList;
 
+    //订单详情（用户端历史订单使用的字段名）
+    private List<OrderDetail> orderDetails;
+
 }

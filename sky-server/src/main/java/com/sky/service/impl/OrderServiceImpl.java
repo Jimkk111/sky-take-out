@@ -3,24 +3,33 @@ package com.sky.service.impl;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
 import com.sky.constant.MessageConstant;
+import com.sky.context.BaseContext;
 import com.sky.dto.OrdersCancelDTO;
 import com.sky.dto.OrdersConfirmDTO;
+import com.sky.dto.OrdersDTO;
 import com.sky.dto.OrdersPageQueryDTO;
 import com.sky.dto.OrdersRejectionDTO;
+import com.sky.dto.OrdersSubmitDTO;
+import com.sky.entity.AddressBook;
 import com.sky.entity.OrderDetail;
 import com.sky.entity.Orders;
+import com.sky.entity.ShoppingCart;
 import com.sky.exception.OrderBusinessException;
+import com.sky.mapper.AddressBookMapper;
 import com.sky.mapper.OrderDetailMapper;
 import com.sky.mapper.OrderMapper;
+import com.sky.mapper.ShoppingCartMapper;
 import com.sky.result.PageResult;
 import com.sky.service.OrderService;
 import com.sky.vo.OrderStatisticsVO;
+import com.sky.vo.OrderSubmitVO;
 import com.sky.vo.OrderVO;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -34,6 +43,10 @@ public class OrderServiceImpl implements OrderService {
     private OrderMapper orderMapper;
     @Autowired
     private OrderDetailMapper orderDetailMapper;
+    @Autowired
+    private ShoppingCartMapper shoppingCartMapper;
+    @Autowired
+    private AddressBookMapper addressBookMapper;
 
     /**
      * 订单搜索
@@ -223,8 +236,141 @@ public class OrderServiceImpl implements OrderService {
                     .map(detail -> detail.getName() + "*" + detail.getNumber())
                     .collect(Collectors.joining("，"));
             orderVO.setOrderDishes(orderDishes);
+            orderVO.setOrderDetailList(orderDetails);
+            orderVO.setOrderDetails(orderDetails);
             return orderVO;
         }).collect(Collectors.toList());
         return orderVOList;
+    }
+
+    /**
+     * 用户下单
+     * @param ordersSubmitDTO
+     * @return
+     */
+    @Transactional
+    public OrderSubmitVO submitOrder(OrdersSubmitDTO ordersSubmitDTO) {
+        Long userId = BaseContext.getCurrentId();
+
+        //查询当前用户的购物车数据
+        ShoppingCart shoppingCart = ShoppingCart.builder().userId(userId).build();
+        List<ShoppingCart> shoppingCartList = shoppingCartMapper.list(shoppingCart);
+        if (shoppingCartList == null || shoppingCartList.isEmpty()) {
+            throw new OrderBusinessException(MessageConstant.SHOPPING_CART_IS_NULL);
+        }
+
+        //查询收货地址
+        AddressBook addressBook = addressBookMapper.getById(ordersSubmitDTO.getAddressBookId());
+        if (addressBook == null) {
+            throw new OrderBusinessException(MessageConstant.ADDRESS_BOOK_IS_NULL);
+        }
+
+        //本项目的下单为模拟支付，下单即支付成功，订单直接进入待接单状态
+        Orders order = new Orders();
+        order.setAddressBookId(ordersSubmitDTO.getAddressBookId());
+        order.setPayMethod(ordersSubmitDTO.getPayMethod());
+        order.setRemark(ordersSubmitDTO.getRemark());
+        order.setEstimatedDeliveryTime(ordersSubmitDTO.getEstimatedDeliveryTime());
+        order.setDeliveryStatus(ordersSubmitDTO.getDeliveryStatus() == null ? 1 : ordersSubmitDTO.getDeliveryStatus());
+        order.setTablewareStatus(ordersSubmitDTO.getTablewareStatus() == null ? 1 : ordersSubmitDTO.getTablewareStatus());
+        order.setPackAmount(ordersSubmitDTO.getPackAmount() == null ? 0 : ordersSubmitDTO.getPackAmount());
+        order.setTablewareNumber(ordersSubmitDTO.getTablewareNumber() == null ? 0 : ordersSubmitDTO.getTablewareNumber());
+        order.setNumber(String.valueOf(System.currentTimeMillis()));
+        order.setUserId(userId);
+        order.setStatus(Orders.TO_BE_CONFIRMED);
+        order.setPayStatus(Orders.PAID);
+        order.setOrderTime(LocalDateTime.now());
+        order.setCheckoutTime(LocalDateTime.now());
+        order.setPhone(addressBook.getPhone());
+        order.setConsignee(addressBook.getConsignee());
+        order.setAddress((addressBook.getProvinceName() == null ? "" : addressBook.getProvinceName())
+                + (addressBook.getCityName() == null ? "" : addressBook.getCityName())
+                + (addressBook.getDistrictName() == null ? "" : addressBook.getDistrictName())
+                + (addressBook.getDetail() == null ? "" : addressBook.getDetail()));
+
+        //计算订单总金额
+        BigDecimal amount = shoppingCartList.stream()
+                .map(cart -> cart.getAmount().multiply(new BigDecimal(cart.getNumber())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        order.setAmount(amount);
+
+        //插入订单数据
+        orderMapper.insert(order);
+
+        //插入订单明细数据
+        List<OrderDetail> orderDetailList = shoppingCartList.stream().map(cart -> OrderDetail.builder()
+                .orderId(order.getId())
+                .name(cart.getName())
+                .image(cart.getImage())
+                .dishId(cart.getDishId())
+                .setmealId(cart.getSetmealId())
+                .dishFlavor(cart.getDishFlavor())
+                .number(cart.getNumber())
+                .amount(cart.getAmount())
+                .build()).collect(Collectors.toList());
+        orderDetailMapper.insertBatch(orderDetailList);
+
+        //清空购物车
+        shoppingCartMapper.delete(shoppingCart);
+
+        return OrderSubmitVO.builder()
+                .id(order.getId())
+                .orderNumber(order.getNumber())
+                .orderAmount(order.getAmount())
+                .orderTime(order.getOrderTime())
+                .build();
+    }
+
+    /**
+     * 查询用户历史订单
+     * @param ordersPageQueryDTO
+     * @return
+     */
+    public PageResult getUserPage(OrdersPageQueryDTO ordersPageQueryDTO) {
+        ordersPageQueryDTO.setUserId(BaseContext.getCurrentId());
+
+        PageHelper.startPage(ordersPageQueryDTO.getPage(), ordersPageQueryDTO.getPageSize());
+        Page<Orders> page = orderMapper.conditionSearch(ordersPageQueryDTO);
+
+        List<OrderVO> orderVOList = getOrderVOList(page.getResult());
+        return new PageResult(page.getTotal(), orderVOList);
+    }
+
+    /**
+     * 再来一单
+     * @param ordersDTO
+     */
+    @Transactional
+    public void again(OrdersDTO ordersDTO) {
+        Long userId = BaseContext.getCurrentId();
+
+        //根据id查询订单，只能对自己的订单再来一单
+        Orders ordersDB = orderMapper.getById(ordersDTO.getId());
+        if (ordersDB == null) {
+            throw new OrderBusinessException(MessageConstant.ORDER_NOT_FOUND);
+        }
+        if (!ordersDB.getUserId().equals(userId)) {
+            throw new OrderBusinessException(MessageConstant.ORDER_NOT_FOUND);
+        }
+
+        //查询订单明细，加入购物车
+        List<OrderDetail> orderDetailList = orderDetailMapper.getByOrderId(ordersDTO.getId());
+        if (orderDetailList == null || orderDetailList.isEmpty()) {
+            throw new OrderBusinessException(MessageConstant.SHOPPING_CART_IS_NULL);
+        }
+
+        List<ShoppingCart> shoppingCartList = orderDetailList.stream().map(detail -> ShoppingCart.builder()
+                .userId(userId)
+                .name(detail.getName())
+                .image(detail.getImage())
+                .dishId(detail.getDishId())
+                .setmealId(detail.getSetmealId())
+                .dishFlavor(detail.getDishFlavor())
+                .number(detail.getNumber())
+                .amount(detail.getAmount())
+                .createTime(LocalDateTime.now())
+                .build()).collect(Collectors.toList());
+
+        shoppingCartMapper.insertBatch(shoppingCartList);
     }
 }

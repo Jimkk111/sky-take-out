@@ -38,4 +38,10 @@ public interface OrderMapper {
      * @param orders
      */
     void update(Orders orders);
+
+    /**
+     * 插入订单数据
+     * @param orders
+     */
+    void insert(Orders orders);
 }
