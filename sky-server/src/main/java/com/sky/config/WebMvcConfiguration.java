@@ -18,6 +18,7 @@ import springfox.documentation.service.ApiInfo;
 import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spring.web.plugins.Docket;
 
+import java.nio.file.Paths;
 import java.util.List;
 
 /**
@@ -26,6 +27,9 @@ import java.util.List;
 @Configuration
 @Slf4j
 public class WebMvcConfiguration extends WebMvcConfigurationSupport {
+
+    @org.springframework.beans.factory.annotation.Value("${sky.upload.path:uploads}")
+    private String uploadPath;
 
     @Autowired
     private JwtTokenAdminInterceptor jwtTokenAdminInterceptor;
@@ -71,6 +75,9 @@ public class WebMvcConfiguration extends WebMvcConfigurationSupport {
     protected void addResourceHandlers(ResourceHandlerRegistry registry) {
         registry.addResourceHandler("/doc.html").addResourceLocations("classpath:/META-INF/resources/");
         registry.addResourceHandler("/webjars/**").addResourceLocations("classpath:/META-INF/resources/webjars/");
+        //本地文件上传后的下载映射（OSS未配置时的回退方案）
+        registry.addResourceHandler("/admin/common/download/**")
+                .addResourceLocations("file:" + Paths.get(uploadPath).toAbsolutePath() + "/");
     }
 
     /*

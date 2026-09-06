@@ -1,3 +1,10 @@
+spring:
+  redis:
+    host: localhost
+    port: 6379
+    password:
+    database: 0
+
 sky:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -6,3 +13,20 @@ sky:
     database: sky_take_out
     username: root
     password: 123456
+  alioss:
+    # Endpoint中不含bucket名称
+    endpoint: oss-cn-beijing.aliyuncs.com
+    access-key-id: 请填写阿里云OSS的AccessKeyId
+    access-key-secret: 请填写阿里云OSS的AccessKeySecret
+    bucket-name: 请填写阿里云OSS的BucketName
+  wechat:
+    # 相关凭证信息（用户端登录、支付模块使用），接入微信支付时填写
+    appid: 请填写小程序appid
+    secret: 请填写小程序秘钥
+    mchid: 请填写商户号
+    mch-serial-no: 请填写商户API证书的证书序列号
+    private-key-file-path: 请填写商户私钥文件路径
+    api-v3-key: 请填写证书解密的密钥
+    we-chat-pay-cert-file-path: 请填写平台证书路径
+    notify-url: 请填写支付成功的回调地址
+    refund-notify-url: 请填写退款成功的回调地址

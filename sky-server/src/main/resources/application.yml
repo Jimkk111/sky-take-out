@@ -6,6 +6,11 @@ spring:
     active: dev
   main:
     allow-circular-references: true
+  servlet:
+    multipart:
+      #限制文件上传的大小，文件上传接口使用
+      max-file-size: 10MB
+      max-request-size: 100MB
   datasource:
     druid:
       driver-class-name: ${sky.datasource.driver-class-name}
@@ -30,6 +35,9 @@ logging:
         controller: info
 
 sky:
+  #本地文件上传目录（OSS未配置时使用，相对路径基于运行目录）
+  upload:
+    path: uploads
   jwt:
     # 设置jwt签名加密时使用的秘钥
     admin-secret-key: itcast
@@ -37,3 +45,7 @@ sky:
     admin-ttl: 7200000
     # 管理端令牌cookie名称
     admin-token-name: sky_admin_token
+    # 用户端微信用户生成jwt令牌相关配置（用户端模块使用）
+    user-secret-key: itheima
+    user-ttl: 7200000
+    user-token-name: authentication
