@@ -6,3 +6,10 @@ sky:
     database: sky_take_out
     username: root
     password: 123456
+  alioss:
+    # Bucket所在地域的外网Endpoint，如 oss-cn-hangzhou.aliyuncs.com
+    endpoint: ${ALIYUN_OSS_ENDPOINT:oss-cn-guangzhou.aliyuncs.com}
+    # RAM子账号的AccessKey，通过环境变量注入，勿将明文密钥提交到git
+    access-key-id: ${ALIYUN_AK_ID:}
+    access-key-secret: ${ALIYUN_AK_SECRET:}
+    bucket-name: ${ALIYUN_OSS_BUCKET:sky-take-mok}
