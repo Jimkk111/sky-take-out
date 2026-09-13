@@ -14,11 +14,12 @@ sky:
     username: root
     password: 123456
   alioss:
-    # Endpoint中不含bucket名称
-    endpoint: oss-cn-beijing.aliyuncs.com
-    access-key-id: 请填写阿里云OSS的AccessKeyId
-    access-key-secret: 请填写阿里云OSS的AccessKeySecret
-    bucket-name: 请填写阿里云OSS的BucketName
+    # Bucket所在地域的外网Endpoint，如 oss-cn-hangzhou.aliyuncs.com
+    endpoint: ${OSS_ENDPOINT:oss-cn-guangzhou.aliyuncs.com}
+    # RAM子账号的AccessKey，通过环境变量注入，勿将明文密钥提交到git
+    access-key-id: ${OSS_ACCESS_KEY_ID:}
+    access-key-secret: ${OSS_ACCESS_KEY_SECRET:}
+    bucket-name: ${OSS_BUCKET:sky-take-mok}
   wechat:
     # 相关凭证信息（用户端登录、支付模块使用），接入微信支付时填写
     appid: 请填写小程序appid
