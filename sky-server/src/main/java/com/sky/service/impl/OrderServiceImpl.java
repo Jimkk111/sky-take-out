@@ -45,11 +45,23 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
 @Slf4j
 public class OrderServiceImpl implements OrderService {
+
+    //模拟微信支付异步回调的调度器：daemon线程，不阻止JVM退出
+    private static final ScheduledExecutorService MOCK_NOTIFY_EXECUTOR =
+            Executors.newSingleThreadScheduledExecutor(runnable -> {
+                Thread thread = new Thread(runnable, "mock-pay-notify");
+                thread.setDaemon(true);
+                return thread;
+            });
 
     @Autowired
     private OrderMapper orderMapper;
@@ -357,8 +369,18 @@ public class OrderServiceImpl implements OrderService {
 
         String mchid = weChatProperties.getMchid();
         if (mchid == null || mchid.isEmpty() || mchid.contains("请填写")) {
-            log.warn("微信商户凭证未配置，使用模拟支付，订单直接标记支付成功：{}", orderNumber);
-            paySuccess(orderNumber);
+            log.warn("微信商户凭证未配置，使用模拟支付：延迟2~4秒异步标记支付成功，模拟微信回调到达的时间差，订单号：{}", orderNumber);
+            //不等支付结果立即返回，前端进入轮询；延迟任务到期后标记已支付，
+            //让前端真实经历 status=1(待支付) -> 2(待接单) 的轮询等待过程
+            long delayMillis = 2000 + ThreadLocalRandom.current().nextLong(2000);
+            MOCK_NOTIFY_EXECUTOR.schedule(() -> {
+                try {
+                    paySuccess(orderNumber);
+                } catch (Exception e) {
+                    log.error("模拟支付回调处理失败，订单号：{}", orderNumber, e);
+                }
+            }, delayMillis, TimeUnit.MILLISECONDS);
+
             return OrderPaymentVO.builder()
                     .timeStamp(String.valueOf(System.currentTimeMillis() / 1000))
                     .nonceStr(UUID.randomUUID().toString().replace("-", ""))
