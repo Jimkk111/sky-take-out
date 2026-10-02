@@ -3,6 +3,7 @@ package com.sky.mapper;
 import com.sky.entity.AddressBook;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
@@ -53,8 +54,16 @@ public interface AddressBookMapper {
     void updateToNotDefault(Long userId);
 
     /**
-     * 批量删除地址
-     * @param ids
+     * 将指定地址设置为默认（带归属校验）
+     * @param id
+     * @param userId
      */
-    void deleteByIds(List<Long> ids);
+    void updateToDefault(@Param("id") Long id, @Param("userId") Long userId);
+
+    /**
+     * 批量删除当前用户的地址
+     * @param ids
+     * @param userId
+     */
+    void deleteByIds(@Param("ids") List<Long> ids, @Param("userId") Long userId);
 }

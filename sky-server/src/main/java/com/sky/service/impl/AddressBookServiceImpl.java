@@ -50,19 +50,20 @@ public class AddressBookServiceImpl implements AddressBookService {
     }
 
     /**
-     * 修改地址
+     * 修改地址（默认地址不允许在此变更，只能通过setDefault；更新范围限定为当前用户的地址）
      * @param addressBook
      */
     public void update(AddressBook addressBook) {
+        addressBook.setUserId(BaseContext.getCurrentId());
         addressBookMapper.update(addressBook);
     }
 
     /**
-     * 批量删除地址
+     * 批量删除当前用户的地址
      * @param ids
      */
     public void deleteBatch(List<Long> ids) {
-        addressBookMapper.deleteByIds(ids);
+        addressBookMapper.deleteByIds(ids, BaseContext.getCurrentId());
     }
 
     /**
@@ -80,8 +81,9 @@ public class AddressBookServiceImpl implements AddressBookService {
     @Transactional
     public void setDefault(AddressBook addressBook) {
         //先将当前用户的所有地址设置为非默认
-        addressBookMapper.updateToNotDefault(BaseContext.getCurrentId());
-        //再将指定地址设置为默认
-        addressBookMapper.update(AddressBook.builder().id(addressBook.getId()).isDefault(1).build());
+        Long userId = BaseContext.getCurrentId();
+        addressBookMapper.updateToNotDefault(userId);
+        //再将指定地址设置为默认（带归属校验，目标地址不属于当前用户时不会命中任何行）
+        addressBookMapper.updateToDefault(addressBook.getId(), userId);
     }
 }

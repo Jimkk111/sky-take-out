@@ -46,19 +46,20 @@
             <if test="label != null">
                 label = #{label},
             </if>
-            <if test="isDefault != null">
-                is_default = #{isDefault},
-            </if>
         </set>
-        where id = #{id}
+        where id = #{id} and user_id = #{userId}
     </update>
 
     <update id="updateToNotDefault">
         update address_book set is_default = 0 where user_id = #{userId}
     </update>
 
+    <update id="updateToDefault">
+        update address_book set is_default = 1 where id = #{id} and user_id = #{userId}
+    </update>
+
     <delete id="deleteByIds">
-        delete from address_book where id in
+        delete from address_book where user_id = #{userId} and id in
         <foreach collection="ids" item="id" open="(" separator="," close=")">
             #{id}
         </foreach>

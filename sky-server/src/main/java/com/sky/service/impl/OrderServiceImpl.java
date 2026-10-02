@@ -63,6 +63,11 @@ public class OrderServiceImpl implements OrderService {
                 return thread;
             });
 
+    //WebSocket推送消息类型：与前端约定，1-来单提醒 2-催单提醒 3-订单状态变更
+    private static final Integer MESSAGE_TYPE_NEW_ORDER = 1;
+    private static final Integer MESSAGE_TYPE_REMINDER = 2;
+    private static final Integer MESSAGE_TYPE_STATUS_CHANGE = 3;
+
     @Autowired
     private OrderMapper orderMapper;
     @Autowired
@@ -154,6 +159,9 @@ public class OrderServiceImpl implements OrderService {
                 .build();
 
         orderMapper.update(orders);
+
+        //推送状态变更消息，前端据此增减对应Tab角标
+        sendOrderStatusMessage(ordersConfirmDTO.getId(), Orders.CONFIRMED);
     }
 
     /**
@@ -183,6 +191,9 @@ public class OrderServiceImpl implements OrderService {
                 .build();
 
         orderMapper.update(orders);
+
+        //推送状态变更消息，前端据此增减对应Tab角标
+        sendOrderStatusMessage(ordersRejectionDTO.getId(), Orders.CANCELLED);
     }
 
     /**
@@ -201,6 +212,9 @@ public class OrderServiceImpl implements OrderService {
                 .build();
 
         orderMapper.update(orders);
+
+        //推送状态变更消息，前端据此增减对应Tab角标
+        sendOrderStatusMessage(ordersCancelDTO.getId(), Orders.CANCELLED);
     }
 
     /**
@@ -226,6 +240,9 @@ public class OrderServiceImpl implements OrderService {
                 .build();
 
         orderMapper.update(orders);
+
+        //推送状态变更消息，前端据此增减对应Tab角标
+        sendOrderStatusMessage(id, Orders.DELIVERY_IN_PROGRESS);
     }
 
     /**
@@ -252,6 +269,9 @@ public class OrderServiceImpl implements OrderService {
                 .build();
 
         orderMapper.update(orders);
+
+        //推送状态变更消息，前端据此增减对应Tab角标
+        sendOrderStatusMessage(id, Orders.COMPLETED);
     }
 
     /**
@@ -437,7 +457,7 @@ public class OrderServiceImpl implements OrderService {
         orderMapper.update(orders);
 
         //支付成功后通过WebSocket推送来单提醒，通知商家有新订单
-        sendOrderMessage("来单提醒", ordersDB);
+        sendOrderMessage(MESSAGE_TYPE_NEW_ORDER, ordersDB);
     }
 
     /**
@@ -510,19 +530,34 @@ public class OrderServiceImpl implements OrderService {
         }
 
         //通过WebSocket推送催单提醒，通知商家用户正在催单
-        sendOrderMessage("催单提醒", ordersDB);
+        sendOrderMessage(MESSAGE_TYPE_REMINDER, ordersDB);
     }
 
     /**
      * 封装订单提醒消息并通过WebSocket群发给所有客户端（管理端）
-     * @param type 消息类型：来单提醒、催单提醒
+     * @param type 消息类型：1-来单提醒 2-催单提醒（数字，与前端约定）
      * @param orders
      */
-    private void sendOrderMessage(String type, Orders orders) {
+    private void sendOrderMessage(Integer type, Orders orders) {
         Map map = new HashMap();
         map.put("type", type);
         map.put("orderId", orders.getId());
         map.put("content", "订单号：" + orders.getNumber());
+        String json = JSON.toJSONString(map);
+        webSocketServer.sendToAllClient(json);
+    }
+
+    /**
+     * 封装订单状态变更消息并通过WebSocket群发给所有客户端（管理端），
+     * 前端依据status精确增减对应状态Tab的角标，无需全量重拉统计
+     * @param orderId 订单id
+     * @param status 变更后的订单状态
+     */
+    private void sendOrderStatusMessage(Long orderId, Integer status) {
+        Map map = new HashMap();
+        map.put("type", MESSAGE_TYPE_STATUS_CHANGE);
+        map.put("orderId", orderId);
+        map.put("status", status);
         String json = JSON.toJSONString(map);
         webSocketServer.sendToAllClient(json);
     }
