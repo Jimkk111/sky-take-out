@@ -17,11 +17,16 @@ import org.apache.http.util.EntityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import javax.crypto.Cipher;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.Signature;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
@@ -231,5 +236,59 @@ public class WeChatPayUtil {
 
         //调用申请退款接口
         return post(REFUNDS, body);
+    }
+
+    /**
+     * 支付通知验签：用微信支付平台证书的公钥校验报文头Wechatpay-Signature
+     * 签名串为 时间戳\n随机串\n报文体\n，与微信支付APIv3规范一致
+     *
+     * @param serial    微信支付平台证书序列号（报文头Wechatpay-Serial）
+     * @param timestamp 报文头Wechatpay-Timestamp
+     * @param nonce     报文头Wechatpay-Nonce
+     * @param body      报文体
+     * @param signature 报文头Wechatpay-Signature（Base64）
+     * @return 验签是否通过
+     */
+    public boolean verifyNotifySign(String serial, String timestamp, String nonce, String body, String signature) {
+        try {
+            X509Certificate certificate = PemUtil.loadCertificate(
+                    new FileInputStream(new File(weChatProperties.getWeChatPayCertFilePath())));
+
+            //证书序列号与报文头不一致说明微信侧已轮换平台证书，本地证书需更新
+            String localSerial = certificate.getSerialNumber().toString(16).toUpperCase();
+            if (serial != null && !serial.equalsIgnoreCase(localSerial)) {
+                System.out.println("支付通知验签警告：平台证书序列号不一致，报文头=" + serial + "，本地=" + localSerial);
+            }
+
+            Signature signer = Signature.getInstance("SHA256withRSA");
+            PublicKey publicKey = certificate.getPublicKey();
+            signer.initVerify(publicKey);
+            String message = timestamp + "\n" + nonce + "\n" + body + "\n";
+            signer.update(message.getBytes(StandardCharsets.UTF_8));
+            return signer.verify(Base64.getDecoder().decode(signature));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * 支付通知解密：用APIv3密钥对resource.ciphertext做AES-256-GCM解密
+     *
+     * @param associatedData resource.associated_data
+     * @param nonce          resource.nonce
+     * @param ciphertext     resource.ciphertext（Base64）
+     * @return 解密后的明文JSON字符串
+     */
+    public String decryptNotifyResource(String associatedData, String nonce, String ciphertext) throws Exception {
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        SecretKeySpec keySpec = new SecretKeySpec(weChatProperties.getApiV3Key().getBytes(StandardCharsets.UTF_8), "AES");
+        GCMParameterSpec gcmSpec = new GCMParameterSpec(128, nonce.getBytes(StandardCharsets.UTF_8));
+        cipher.init(Cipher.DECRYPT_MODE, keySpec, gcmSpec);
+        if (associatedData != null) {
+            cipher.updateAAD(associatedData.getBytes(StandardCharsets.UTF_8));
+        }
+        byte[] decrypted = cipher.doFinal(Base64.getDecoder().decode(ciphertext));
+        return new String(decrypted, StandardCharsets.UTF_8);
     }
 }

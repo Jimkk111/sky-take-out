@@ -19,5 +19,6 @@ public class OrderPaymentVO implements Serializable {
     private String timeStamp; //时间戳
     private String signType; //签名算法
     private String packageStr; //统一下单接口返回的 prepay_id 参数值
+    private Boolean mock; //是否模拟支付：true时前端跳过requestPayment，直接轮询订单状态
 
 }

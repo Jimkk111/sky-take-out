@@ -2,28 +2,38 @@ package com.sky.service.impl;
 
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
+import com.alibaba.fastjson.JSONObject;
 import com.sky.constant.MessageConstant;
 import com.sky.context.BaseContext;
 import com.sky.dto.OrdersCancelDTO;
 import com.sky.dto.OrdersConfirmDTO;
 import com.sky.dto.OrdersDTO;
 import com.sky.dto.OrdersPageQueryDTO;
+import com.sky.dto.OrdersPaymentDTO;
 import com.sky.dto.OrdersRejectionDTO;
 import com.sky.dto.OrdersSubmitDTO;
 import com.sky.entity.AddressBook;
 import com.sky.entity.OrderDetail;
 import com.sky.entity.Orders;
 import com.sky.entity.ShoppingCart;
+import com.sky.entity.User;
 import com.sky.exception.OrderBusinessException;
+import com.alibaba.fastjson.JSON;
 import com.sky.mapper.AddressBookMapper;
 import com.sky.mapper.OrderDetailMapper;
 import com.sky.mapper.OrderMapper;
 import com.sky.mapper.ShoppingCartMapper;
+import com.sky.mapper.UserMapper;
+import com.sky.properties.WeChatProperties;
 import com.sky.result.PageResult;
 import com.sky.service.OrderService;
+import com.sky.utils.WeChatPayUtil;
+import com.sky.websocket.WebSocketServer;
+import com.sky.vo.OrderPaymentVO;
 import com.sky.vo.OrderStatisticsVO;
 import com.sky.vo.OrderSubmitVO;
 import com.sky.vo.OrderVO;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -34,9 +44,11 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 public class OrderServiceImpl implements OrderService {
 
     @Autowired
@@ -47,6 +59,14 @@ public class OrderServiceImpl implements OrderService {
     private ShoppingCartMapper shoppingCartMapper;
     @Autowired
     private AddressBookMapper addressBookMapper;
+    @Autowired
+    private UserMapper userMapper;
+    @Autowired
+    private WeChatProperties weChatProperties;
+    @Autowired
+    private WeChatPayUtil weChatPayUtil;
+    @Autowired
+    private WebSocketServer webSocketServer;
 
     /**
      * 订单搜索
@@ -265,7 +285,8 @@ public class OrderServiceImpl implements OrderService {
             throw new OrderBusinessException(MessageConstant.ADDRESS_BOOK_IS_NULL);
         }
 
-        //本项目的下单为模拟支付，下单即支付成功，订单直接进入待接单状态
+        //下单生成待支付订单：真实支付由 /order/payment 预支付 + 微信异步回调驱动；
+        //本地未配置微信商户凭证时，payment接口会走模拟支付直接标记支付成功
         Orders order = new Orders();
         order.setAddressBookId(ordersSubmitDTO.getAddressBookId());
         order.setPayMethod(ordersSubmitDTO.getPayMethod());
@@ -277,10 +298,9 @@ public class OrderServiceImpl implements OrderService {
         order.setTablewareNumber(ordersSubmitDTO.getTablewareNumber() == null ? 0 : ordersSubmitDTO.getTablewareNumber());
         order.setNumber(String.valueOf(System.currentTimeMillis()));
         order.setUserId(userId);
-        order.setStatus(Orders.TO_BE_CONFIRMED);
-        order.setPayStatus(Orders.PAID);
+        order.setStatus(Orders.PENDING_PAYMENT);
+        order.setPayStatus(Orders.UN_PAID);
         order.setOrderTime(LocalDateTime.now());
-        order.setCheckoutTime(LocalDateTime.now());
         order.setPhone(addressBook.getPhone());
         order.setConsignee(addressBook.getConsignee());
         order.setAddress((addressBook.getProvinceName() == null ? "" : addressBook.getProvinceName())
@@ -319,6 +339,83 @@ public class OrderServiceImpl implements OrderService {
                 .orderAmount(order.getAmount())
                 .orderTime(order.getOrderTime())
                 .build();
+    }
+
+    /**
+     * 订单支付
+     * 微信商户凭证已配置时走真实微信支付：按订单号查金额、取当前用户openid，调统一下单并返回
+     * 调起收银台所需的签名四件套；未配置凭证时走模拟支付，直接标记支付成功，前端跳过requestPayment
+     * @param ordersPaymentDTO
+     * @return
+     */
+    public OrderPaymentVO payment(OrdersPaymentDTO ordersPaymentDTO) {
+        String orderNumber = ordersPaymentDTO.getOrderNumber();
+        Orders ordersDB = orderMapper.getByNumber(orderNumber);
+        if (ordersDB == null) {
+            throw new OrderBusinessException(MessageConstant.ORDER_NOT_FOUND);
+        }
+
+        String mchid = weChatProperties.getMchid();
+        if (mchid == null || mchid.isEmpty() || mchid.contains("请填写")) {
+            log.warn("微信商户凭证未配置，使用模拟支付，订单直接标记支付成功：{}", orderNumber);
+            paySuccess(orderNumber);
+            return OrderPaymentVO.builder()
+                    .timeStamp(String.valueOf(System.currentTimeMillis() / 1000))
+                    .nonceStr(UUID.randomUUID().toString().replace("-", ""))
+                    .packageStr("prepay_id=mock")
+                    .signType("RSA")
+                    .paySign("MOCK")
+                    .mock(true)
+                    .build();
+        }
+
+        try {
+            //jsapi下单需要支付用户的openid，从当前登录用户取
+            User user = userMapper.getById(BaseContext.getCurrentId());
+            JSONObject jsonObject = weChatPayUtil.pay(orderNumber, ordersDB.getAmount(),
+                    "苍穹外卖订单-" + orderNumber, user.getOpenid());
+
+            //统一下单失败时微信返回的报文中不含prepay_id，四件套字段为空，前端requestPayment会失败
+            return OrderPaymentVO.builder()
+                    .timeStamp(jsonObject.getString("timeStamp"))
+                    .nonceStr(jsonObject.getString("nonceStr"))
+                    .packageStr(jsonObject.getString("package"))
+                    .signType(jsonObject.getString("signType"))
+                    .paySign(jsonObject.getString("paySign"))
+                    .mock(false)
+                    .build();
+        } catch (Exception e) {
+            log.error("微信预下单失败，订单号：{}", orderNumber, e);
+            throw new OrderBusinessException(MessageConstant.PAY_FAILED);
+        }
+    }
+
+    /**
+     * 支付成功，修改订单状态（微信异步回调和模拟支付共用入口）
+     * @param orderNumber 商户订单号
+     */
+    public void paySuccess(String orderNumber) {
+        Orders ordersDB = orderMapper.getByNumber(orderNumber);
+        if (ordersDB == null) {
+            throw new OrderBusinessException(MessageConstant.ORDER_NOT_FOUND);
+        }
+
+        //微信会重复推送支付通知，已处理的订单直接忽略，保证幂等
+        if (Orders.PAID.equals(ordersDB.getPayStatus())) {
+            log.info("订单已支付，忽略重复通知：{}", orderNumber);
+            return;
+        }
+
+        Orders orders = Orders.builder()
+                .id(ordersDB.getId())
+                .status(Orders.TO_BE_CONFIRMED)
+                .payStatus(Orders.PAID)
+                .checkoutTime(LocalDateTime.now())
+                .build();
+        orderMapper.update(orders);
+
+        //支付成功后通过WebSocket推送来单提醒，通知商家有新订单
+        sendOrderMessage("来单提醒", ordersDB);
     }
 
     /**
@@ -372,5 +469,39 @@ public class OrderServiceImpl implements OrderService {
                 .build()).collect(Collectors.toList());
 
         shoppingCartMapper.insertBatch(shoppingCartList);
+    }
+
+    /**
+     * 用户催单
+     * @param id
+     */
+    public void reminder(Long id) {
+        //根据id查询订单
+        Orders ordersDB = orderMapper.getById(id);
+        if (ordersDB == null) {
+            throw new OrderBusinessException(MessageConstant.ORDER_NOT_FOUND);
+        }
+
+        //只有待接单状态的订单才可以催单
+        if (!ordersDB.getStatus().equals(Orders.TO_BE_CONFIRMED)) {
+            throw new OrderBusinessException(MessageConstant.ORDER_STATUS_ERROR);
+        }
+
+        //通过WebSocket推送催单提醒，通知商家用户正在催单
+        sendOrderMessage("催单提醒", ordersDB);
+    }
+
+    /**
+     * 封装订单提醒消息并通过WebSocket群发给所有客户端（管理端）
+     * @param type 消息类型：来单提醒、催单提醒
+     * @param orders
+     */
+    private void sendOrderMessage(String type, Orders orders) {
+        Map map = new HashMap();
+        map.put("type", type);
+        map.put("orderId", orders.getId());
+        map.put("content", "订单号：" + orders.getNumber());
+        String json = JSON.toJSONString(map);
+        webSocketServer.sendToAllClient(json);
     }
 }

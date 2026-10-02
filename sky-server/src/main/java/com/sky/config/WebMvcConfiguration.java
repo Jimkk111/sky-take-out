@@ -50,8 +50,10 @@ public class WebMvcConfiguration extends WebMvcConfigurationSupport {
                 .addPathPatterns("/admin/**")
                 .excludePathPatterns("/admin/employee/login");
         //用户端登录校验：购物车、地址簿、订单需要登录；菜品、分类、套餐浏览无需登录
+        //支付回调由微信服务器调用，不携带用户会话，需放行
         registry.addInterceptor(userLoginInterceptor)
-                .addPathPatterns("/shoppingCart/**", "/addressBook/**", "/order/**");
+                .addPathPatterns("/shoppingCart/**", "/addressBook/**", "/order/**")
+                .excludePathPatterns("/order/payNotify");
     }
 
     /**

@@ -27,6 +27,14 @@ public interface OrderMapper {
     Orders getById(Long id);
 
     /**
+     * 根据订单号查询订单（支付回调按商户订单号定位）
+     * @param number
+     * @return
+     */
+    @Select("select * from orders where number = #{number}")
+    Orders getByNumber(String number);
+
+    /**
      * 根据条件统计订单数量
      * @param map
      * @return

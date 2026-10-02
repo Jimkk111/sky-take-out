@@ -4,10 +4,12 @@ import com.sky.dto.OrdersCancelDTO;
 import com.sky.dto.OrdersConfirmDTO;
 import com.sky.dto.OrdersDTO;
 import com.sky.dto.OrdersPageQueryDTO;
+import com.sky.dto.OrdersPaymentDTO;
 import com.sky.dto.OrdersRejectionDTO;
 import com.sky.dto.OrdersSubmitDTO;
 import com.sky.entity.Orders;
 import com.sky.result.PageResult;
+import com.sky.vo.OrderPaymentVO;
 import com.sky.vo.OrderStatisticsVO;
 import com.sky.vo.OrderSubmitVO;
 import com.sky.vo.OrderVO;
@@ -65,11 +67,24 @@ public interface OrderService {
     void complete(Long id);
 
     /**
-     * 用户下单
+     * 用户下单（生成待支付订单）
      * @param ordersSubmitDTO
      * @return
      */
     OrderSubmitVO submitOrder(OrdersSubmitDTO ordersSubmitDTO);
+
+    /**
+     * 订单支付（微信jsapi预下单，未配置商户凭证时走模拟支付）
+     * @param ordersPaymentDTO
+     * @return
+     */
+    OrderPaymentVO payment(OrdersPaymentDTO ordersPaymentDTO);
+
+    /**
+     * 支付成功，修改订单状态（微信异步回调和模拟支付共用入口）
+     * @param orderNumber 商户订单号
+     */
+    void paySuccess(String orderNumber);
 
     /**
      * 查询用户历史订单
@@ -83,4 +98,10 @@ public interface OrderService {
      * @param ordersDTO
      */
     void again(OrdersDTO ordersDTO);
+
+    /**
+     * 用户催单
+     * @param id
+     */
+    void reminder(Long id);
 }
